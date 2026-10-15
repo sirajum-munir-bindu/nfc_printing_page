@@ -1,0 +1,135 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+}
+
+enum ElementType {
+  NAME
+  DESIGNATION
+  QR_CODE
+}
+
+enum CardSide {
+  FRONT
+  BACK
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([email])
+}
+
+model CardTemplate {
+  id                 String          @id @default(cuid())
+  name               String
+  description        String?
+  frontPdfStorageKey String
+  backPdfStorageKey  String
+  frontPageIndex     Int             @default(0)
+  backPageIndex      Int             @default(0)
+  frontPageWidth     Float           // Width in PDF points
+  frontPageHeight    Float           // Height in PDF points
+  backPageWidth      Float           // Width in PDF points
+  backPageHeight     Float           // Height in PDF points
+  configuration      Json            @default("{}") // safe margins, bleed, DPI guides, fallback options
+  elements           DesignElement[]
+  orders             CardOrder[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([name])
+}
+
+model DesignElement {
+  id         String       @id @default(cuid())
+  templateId String
+  template   CardTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  type       ElementType
+  side       CardSide     @default(FRONT)
+  x          Float        // in PDF points from top-left or bottom-left normalized
+  y          Float        // in PDF points
+  width      Float        // in PDF points
+  height     Float        // in PDF points
+  rotation   Float        @default(0)
+  fontFamily String       @default("Helvetica")
+  fontSize   Float        @default(12)
+  color      String       @default("#000000")
+  alignment  String       @default("left") // "left" | "center" | "right"
+  enabled    Boolean      @default(true)
+  style      Json?        // additional properties: lineSpacing, qrErrorCorrection, qrPadding, etc.
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([templateId])
+  @@index([type])
+  @@index([side])
+}
+
+model Customer {
+  id           String      @id @default(cuid())
+  name         String
+  designation  String?
+  portfolioUrl String
+  email        String?
+  orders       CardOrder[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([name])
+  @@index([email])
+}
+
+model CardOrder {
+  id             String          @id @default(cuid())
+  customerId     String
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  templateId     String
+  template       CardTemplate    @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  status         OrderStatus     @default(PENDING)
+  orderReference String?
+  notes          String?
+  generatedCards GeneratedCard[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([customerId])
+  @@index([templateId])
+  @@index([status])
+  @@index([orderReference])
+}
+
+model GeneratedCard {
+  id                    String    @id @default(cuid())
+  orderId               String
+  order                 CardOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  frontPdfStorageKey    String
+  backPdfStorageKey     String
+  combinedPdfStorageKey String?
+  configurationSnapshot Json      // Immutable snapshot of template, elements, customer info at generation time
+  createdAt             DateTime  @default(now())
+
+  @@index([orderId])
+}
