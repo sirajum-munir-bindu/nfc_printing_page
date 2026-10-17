@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Layers,
-  PlusCircle,
   Users,
   CreditCard,
   ShoppingBag,
@@ -267,13 +266,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
             >
               <CreditCard className="w-3.5 h-3.5" />
               <span>Create Card</span>
-            </Link>
-            <Link
-              href="/templates/create"
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition duration-150"
-            >
-              <PlusCircle className="w-3.5 h-3.5 text-slate-500" />
-              <span>New Template</span>
             </Link>
           </div>
         </header>
