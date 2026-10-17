@@ -9,7 +9,6 @@ import {
   PlusCircle,
   Users,
   CreditCard,
-  FileCheck2,
   ShoppingBag,
   Settings,
   LogOut,
@@ -103,14 +102,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       items: [
         { label: "Create Card", href: "/cards/create", icon: CreditCard, highlight: true },
         { label: "Card Orders", href: "/orders", icon: ShoppingBag },
-        { label: "Generated PDFs", href: "/cards", icon: FileCheck2 },
       ],
     },
     {
       group: "Design & Assets",
       items: [
         { label: "Card Templates", href: "/templates", icon: Layers },
-        { label: "New Template", href: "/templates/create", icon: PlusCircle },
         { label: "Customer Directory", href: "/customers", icon: Users },
       ],
     },

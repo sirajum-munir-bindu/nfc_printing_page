@@ -1,13 +1,19 @@
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth, jsonResponse, errorResponse } from "@/lib/api-helper";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await requireApiAuth();
   if (!user) {
     return errorResponse("Unauthorized", 401);
   }
 
   try {
+    const { searchParams } = new URL(req.url);
+    const all = searchParams.get("all") === "true";
+    const customLimit = searchParams.get("limit");
+    const cardsLimit = customLimit ? parseInt(customLimit, 10) : (all ? undefined : 5);
+
     const [
       totalTemplates,
       totalCustomers,
@@ -21,7 +27,7 @@ export async function GET() {
       prisma.generatedCard.count(),
       prisma.cardOrder.count({ where: { status: "PENDING" } }),
       prisma.generatedCard.findMany({
-        take: 5,
+        take: cardsLimit,
         orderBy: { createdAt: "desc" },
         include: {
           order: {

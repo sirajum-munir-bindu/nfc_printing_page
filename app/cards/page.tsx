@@ -14,6 +14,8 @@ import {
   X,
   CreditCard,
   Plus,
+  Search,
+  Calendar,
 } from "lucide-react";
 
 interface GeneratedCardItem {
@@ -25,12 +27,12 @@ interface GeneratedCardItem {
   createdAt: string;
   order: {
     id: string;
-    orderReference: string;
+    orderReference: string | null;
     status: string;
     customer: {
       id: string;
       name: string;
-      designation: string;
+      designation: string | null;
       portfolioUrl: string;
     };
     template: {
@@ -42,16 +44,23 @@ interface GeneratedCardItem {
 
 export default function GeneratedCardsPage() {
   const [cards, setCards] = useState<GeneratedCardItem[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [selectedSnapshot, setSelectedSnapshot] = useState<any | null>(null);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
 
-  const loadCards = () => {
+  const loadCards = (query?: string) => {
     setLoading(true);
-    fetch("/api/dashboard/stats")
+    const url = query && query.trim()
+      ? `/api/cards?search=${encodeURIComponent(query.trim())}`
+      : "/api/cards";
+
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
-        setCards(data.recentCards || []);
+        setCards(data.cards || data.recentCards || []);
+        setTotalCount(data.total !== undefined ? data.total : (data.cards?.length || 0));
         setLoading(false);
       })
       .catch((err) => {
@@ -64,15 +73,25 @@ export default function GeneratedCardsPage() {
     loadCards();
   }, []);
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    loadCards(searchTerm);
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <FileCheck2 className="w-6 h-6 text-blue-600" />
-              <span>Generated Personalized PDFs</span>
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <FileCheck2 className="w-6 h-6 text-blue-600" />
+                <span>Generated Personalized PDFs</span>
+              </h1>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                Total History: {totalCount}
+              </span>
+            </div>
             <p className="text-sm text-slate-500 mt-1">
               Production print-ready PDFs with immutable configuration snapshots and zero rasterization.
             </p>
@@ -80,11 +99,48 @@ export default function GeneratedCardsPage() {
 
           <Link
             href="/cards/create"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Personalize New Card</span>
           </Link>
+        </div>
+
+        {/* Search & Stats Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <form onSubmit={handleSearch} className="flex-1 max-w-md flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by customer, order ref, or template..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-3.5 py-2 text-xs font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition"
+            >
+              Search
+            </button>
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  loadCards("");
+                }}
+                className="px-2.5 py-2 text-xs text-slate-500 hover:text-slate-800 transition"
+              >
+                Clear
+              </button>
+            )}
+          </form>
+          <div className="text-xs text-slate-500 font-medium px-2">
+            Showing <strong className="text-slate-900">{cards.length}</strong> of <strong className="text-slate-900">{totalCount}</strong> total history
+          </div>
         </div>
 
         {/* Cards Table */}
@@ -97,18 +153,34 @@ export default function GeneratedCardsPage() {
                 <FileCheck2 className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-slate-900">No Generated PDFs Yet</h3>
+                <h3 className="font-bold text-base text-slate-900">
+                  {searchTerm ? "No matching generated PDFs" : "No Generated PDFs Yet"}
+                </h3>
                 <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1">
-                  Personalize your first card to generate print-ready vector PDFs and ZIP bundles.
+                  {searchTerm
+                    ? "Try adjusting your search criteria to find matching personalized cards."
+                    : "Personalize your first card to generate print-ready vector PDFs and ZIP bundles."}
                 </p>
               </div>
-              <Link
-                href="/cards/create"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold"
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>Create Personalized Card</span>
-              </Link>
+              {searchTerm ? (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    loadCards("");
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+                >
+                  Clear Search Filter
+                </button>
+              ) : (
+                <Link
+                  href="/cards/create"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Create Personalized Card</span>
+                </Link>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -118,6 +190,7 @@ export default function GeneratedCardsPage() {
                     <th className="py-3 px-6">Customer &amp; Role</th>
                     <th className="py-3 px-6">Template</th>
                     <th className="py-3 px-6">Order Ref</th>
+                    <th className="py-3 px-6">Generated At</th>
                     <th className="py-3 px-6">Quality Status</th>
                     <th className="py-3 px-6 text-right">Download &amp; Export</th>
                   </tr>
@@ -126,21 +199,37 @@ export default function GeneratedCardsPage() {
                   {cards.map((card) => (
                     <tr key={card.id} className="hover:bg-slate-50/70 transition">
                       <td className="py-4 px-6">
-                        <div className="font-bold text-slate-900">{card.order.customer.name}</div>
-                        <div className="text-xs text-slate-500">{card.order.customer.designation}</div>
-                        <div className="text-[11px] font-mono text-blue-600 truncate max-w-xs mt-0.5">
-                          {card.order.customer.portfolioUrl}
+                        <div className="font-bold text-slate-900">
+                          {card.order?.customer?.name || "Unknown Customer"}
                         </div>
+                        <div className="text-xs text-slate-500">
+                          {card.order?.customer?.designation || "—"}
+                        </div>
+                        {card.order?.customer?.portfolioUrl && (
+                          <div className="text-[11px] font-mono text-blue-600 truncate max-w-xs mt-0.5">
+                            {card.order.customer.portfolioUrl}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-4 px-6 font-medium text-slate-700">
-                        {card.order.template.name}
+                        {card.order?.template?.name || "Default Template"}
                       </td>
 
                       <td className="py-4 px-6">
                         <span className="font-mono text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-800 rounded">
-                          {card.order.orderReference}
+                          {card.order?.orderReference || "—"}
                         </span>
+                      </td>
+
+                      <td className="py-4 px-6 text-xs text-slate-500 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{new Date(card.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          {new Date(card.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                       </td>
 
                       <td className="py-4 px-6">

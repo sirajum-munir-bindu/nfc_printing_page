@@ -28,14 +28,14 @@ interface DashboardData {
     id: string;
     createdAt: string;
     order: {
-      orderReference: string;
-      customer: { name: string; designation: string; portfolioUrl: string };
+      orderReference?: string | null;
+      customer: { name: string; designation?: string | null; portfolioUrl: string };
       template: { name: string };
     };
   }>;
   recentOrders: Array<{
     id: string;
-    orderReference: string;
+    orderReference?: string | null;
     status: string;
     createdAt: string;
     customer: { name: string };
@@ -46,6 +46,8 @@ interface DashboardData {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAllCards, setShowAllCards] = useState(false);
+  const [loadingAllCards, setLoadingAllCards] = useState(false);
 
   useEffect(() => {
     fetch("/api/dashboard/stats")
@@ -59,6 +61,31 @@ export default function DashboardPage() {
         setLoading(false);
       });
   }, []);
+
+  const toggleShowAll = async () => {
+    if (!showAllCards) {
+      setLoadingAllCards(true);
+      try {
+        const res = await fetch("/api/dashboard/stats?all=true");
+        const json = await res.json();
+        setData((prev) => (prev ? { ...prev, recentCards: json.recentCards } : json));
+        setShowAllCards(true);
+      } catch (err) {
+        console.error("Failed to load all cards:", err);
+      } finally {
+        setLoadingAllCards(false);
+      }
+    } else {
+      setShowAllCards(false);
+      try {
+        const res = await fetch("/api/dashboard/stats");
+        const json = await res.json();
+        setData(json);
+      } catch (err) {
+        console.error("Failed to reload stats:", err);
+      }
+    }
+  };
 
   return (
     <AppLayout>
@@ -147,20 +174,42 @@ export default function DashboardPage() {
 
         {/* Recent Generated PDFs Section */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Recently Generated Personalized PDFs</h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-lg font-bold text-slate-900">Recently Generated Personalized PDFs</h2>
+                {data?.stats?.totalGeneratedCards !== undefined && (
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    Total: {data.stats.totalGeneratedCards}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 All outputs preserve original vector artwork and embedding with decodable QR codes.
               </p>
             </div>
-            <Link
-              href="/cards"
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-            >
-              <span>View All History</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {data?.stats?.totalGeneratedCards && data.stats.totalGeneratedCards > 5 && (
+                <button
+                  onClick={toggleShowAll}
+                  disabled={loadingAllCards}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition"
+                >
+                  {loadingAllCards
+                    ? "Loading..."
+                    : showAllCards
+                    ? "Show Recent (5)"
+                    : `Show All (${data.stats.totalGeneratedCards})`}
+                </button>
+              )}
+              <Link
+                href="/cards"
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition"
+              >
+                <span>View Full History ({data?.stats?.totalGeneratedCards ?? 0})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
 
           <div className="divide-y divide-slate-100">
@@ -179,21 +228,40 @@ export default function DashboardPage() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-slate-900">
-                        {card.order.customer.name}
+                        {card.order?.customer?.name || "Unknown Customer"}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                         Verified PDF
                       </span>
+                      {card.createdAt && (
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {new Date(card.createdAt).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                      <span>{card.order.customer.designation}</span>
+                      <span>{card.order?.customer?.designation || "—"}</span>
                       <span>•</span>
-                      <span className="font-mono text-slate-600">{card.order.template.name}</span>
-                      <span>•</span>
-                      <span className="text-blue-600 font-mono truncate max-w-xs">
-                        {card.order.customer.portfolioUrl}
+                      <span className="font-mono text-slate-600">
+                        {card.order?.template?.name || "Default Template"}
                       </span>
+                      {card.order?.orderReference && (
+                        <>
+                          <span>•</span>
+                          <span className="font-mono text-slate-600">
+                            {card.order.orderReference}
+                          </span>
+                        </>
+                      )}
+                      {card.order?.customer?.portfolioUrl && (
+                        <>
+                          <span>•</span>
+                          <span className="text-blue-600 font-mono truncate max-w-xs">
+                            {card.order.customer.portfolioUrl}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -221,6 +289,23 @@ export default function DashboardPage() {
                 </div>
               ))
             )}
+            {data?.stats?.totalGeneratedCards &&
+              !showAllCards &&
+              data.stats.totalGeneratedCards > (data.recentCards?.length || 0) && (
+                <div className="p-4 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+                  <span>
+                    Showing latest {data.recentCards.length} of {data.stats.totalGeneratedCards} generated cards history
+                  </span>
+                  <button
+                    onClick={toggleShowAll}
+                    disabled={loadingAllCards}
+                    className="font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  >
+                    <span>Expand to view all {data.stats.totalGeneratedCards} records here</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
           </div>
         </div>
 
