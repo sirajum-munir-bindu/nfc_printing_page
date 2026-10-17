@@ -113,7 +113,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     {
       group: "System",
       items: [
-        { label: "Settings & Quality", href: "/settings", icon: Settings },
+        { label: "Settings", href: "/settings", icon: Settings },
       ],
     },
   ];
